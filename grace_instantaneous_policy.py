@@ -13,6 +13,7 @@ import time
 from inspect import getsourcefile
 from os.path import abspath
 from statemachine import StateMachine, State
+import numpy
 
 #ros
 import dynamic_reconfigure.client
@@ -65,7 +66,6 @@ def handle_sigint(signalnum, frame):
 
 
 
-
 class InstantaneousPolicy(StateMachine):
 
     def __init__(self):
@@ -81,50 +81,131 @@ class InstantaneousPolicy(StateMachine):
         self.__config_data = loadConfig(path)
 
 
-    '''
-    Question:
-        Format of template actions (bc)?
-        Format of the output action definitions?
-    '''
-
 
     def applyPolicy(self, state_inst, state_prog):
-        gaze_action = gazePolicy(state_inst, state_prog)
-        bc_action = bcPolicy(state_inst, state_prog)
-        return Merge(gaze_action, bc_action)
+        gaze_action = self.__gazePolicy(state_inst, state_prog)
+        bc_action = self.__bcPolicy(state_inst, state_prog)
+        return {'gaze_action': gaze_action, 'bc_action': bc_action}
 
-    def gazePolicy(self, state_inst, state_prog):
-        #No aversion when the robot is speaking
-        if( state_inst['robot_speaking']['val'] ):
-            #Do following
-            pass
+    def __gazePolicy(self, state_inst, state_prog):
+        gaze_action = ''
+        if( state_inst['robot_speaking']['val'] == self.__config_data['StateCode']['r_speaking'] ):
+            #When robot is speaking (be it bc or genuine speech), gaze should be following
+            gaze_action = 'following'
         else:
-            #Alternate between following and aversion 
-            #by an exponential distribution
-            pass
-        pass
+            #When robot is not speaking, alternate between following and aversion
+            gaze_action = self.__alternatingGazeAction(state_inst)
+        return gaze_action
 
+    def __alternatingGazeAction(self,state_inst):
+        #Refer to the timestamp of the aversion / following state to decide whether 
+        #the robot should alternate gaze behavior at this iteration
+        gaze_action = None
 
+        #Sample critical time stamps
+        if( state_inst['robot_speaking']['transition'] #If robot just finished speaking
+            or (
+                state_inst['robot_gaze']['val'] == state_inst['StateCode']['r_following'] #Or if robot just starts following
+                and state_inst['robot_gaze']['transition']
+                )
+            ):
+            #Sample a time interval after which we will start aversion
+            self.__next_aversion_interval = numpy.random.exponential(
+                        self.__config_data['GazeBehavSpec']['aversion_mean_interval'])
+            #Sample the duration of performing aversion
+            self.__aversion_dur = numpy.random.uniform(
+                        self.__config_data['GazeBehavSpec']['aversion_dur_range'][0],
+                        self.__config_data['GazeBehavSpec']['aversion_dur_range'][1])
 
-
-    def bcPolicy(self, state_inst, state_prog):
-        #No bc when the robot is speaking (either a stretch of speech or a bc is playing)
-        if( state_inst['robot_speaking']['val'] ):
-            #No bc
-            pass
+        #Check against time stamps
+        dur_gaze_state = time.time() - state_inst['robot_gaze']['stamp']
+        if( state_inst['robot_gaze']['val'] == state_inst['StateCode']['r_following'] ):
+            if( dur_gaze_state >= self.__next_aversion_interval):
+                gaze_action = 'aversion' #Timeup, start aversion
         else:
-            if( state_inst['turn_ownership']['val'] == 'human_turn' ):
-                #In human's turn, bc by acknowledgement and nodding 
-                #by an exponential distribution
-                pass
+            if( dur_gaze_state >= self.__aversion_dur):
+                gaze_action = 'following' #Timeup, back to following
+
+
+    def __bcPolicy(self, state_inst, state_prog):
+        bc_action = {}
+        bc_action.setdefault('nodding', False)
+        bc_action.setdefault('hum', None)
+
+        if( state_inst['turn_ownership']['val'] == self.__config_data['StateCode']['turn_h'] ):
+            #In human's turn, (don't further specify for now)
+            bc_action = self.__humanTurnBC(state_inst)
+        else:
+            #In indefinite / robot's turn, (don't further specify for now)
+            bc_action = self.__robotTurnBC(state_inst)
+
+        return bc_action
+        
+
+    def __humanTurnBC(self, state_inst):
+        #Refer to the timestamp of the robot not-speaking state & robot not-nodding state
+        #to decide whether the robot should output some bc at this instant
+        bc_action = None
+
+        #For now we use a standard routine  with different specs
+        nodding_trigger = __standardBCTrigger(
+                                'robot_nodding',
+                                self.__config_data['StateCode']['r_n_nodding'],
+                                self.__config_data['NoddingSpec']['mean_interval'])
+        bc_action['nodding'] = nodding_trigger
+
+
+        hum_trigger = __standardBCTrigger(
+                                'robot_speaking',
+                                self.__config_data['StateCode']['r_n_speaking'],
+                                self.__config_data['HUMSpec']['human_turn']['mean_interval'])
+        if(hum_trigger):
+            bc_action['hum'] = 'human turn hum'
+        else:
+            bc_action['hum'] = None
+            
+    def __robotTurnBC(self, state_inst):
+        #Refer to the timestamp of the robot not-speaking state & robot not-nodding state
+        #to decide whether the robot should output some bc at this instant
+        bc_action = None
+
+        if( state_inst['turn_ownership']['transition'] ):
+            #Just transisted from human turn to robot turn
+            #force a special bc immediately, including nodding and utterance
+            bc_action['hum'] = 'special confirm bc'
+
+            return bc_action 
+
+        else:
+            #For now we use a standard routine  with different specs
+            hum_trigger = __standardBCTrigger(
+                                    'robot_speaking',
+                                    self.__config_data['StateCode']['r_n_speaking'],
+                                    self.__config_data['HUMSpec']['robot_turn']['mean_interval'])
+            if(hum_trigger):
+                bc_action['hum'] = 'human turn hum'
             else:
-                #In robot's turn or indefinite turn,
-                #bc by (different) acknowledgement
-                pass
-                
+                bc_action['hum'] = None
 
+    def __standardBCTrigger(self,
+                    state_inst,
+                    monitored_state,
+                    not_acting_state_val,
+                    mean_interval):
+        perform_BC = False
+        #If we are currently in the not-acting state
+        not_acting = (state_inst[monitored_state]['val'] == not_acting_state_val)
+        #If we just transited into this not-acting state
+        sample_trigger = not_acting and state_inst[monitored_state]['transition']
 
+        if( sample_trigger ):
+            #Sample for the interval till next BC
+            self.__bc_stamp[monitored_state] = numpy.random.exponential(mean_interval)
 
+        #Compar against the sampled interval
+        if( not_acting ):
+            not_acting_dur = time.time() - state_inst[monitored_state]['stamp']
+            if(not_acting_dur >= self.__bc_stamp[monitored_state]):
+                perform_BC = True
 
-
-
+        return perform_BC

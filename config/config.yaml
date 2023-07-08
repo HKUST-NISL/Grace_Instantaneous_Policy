@@ -1,0 +1,37 @@
+StateCode:
+  #Robot behavior
+  r_speaking: 'speaking'
+  r_n_speaking: 'not_speaking'
+
+  r_nodding: 'nodding'
+  r_n_nodding: 'not_nodding'
+
+  r_following: 'following'
+  r_aversion: 'averting'
+
+  #Human speaking
+  h_speaking: 'speaking'
+  h_indefinite: 'indefinite'
+  h_not_speaking: 'not_speaking'
+
+  #Turn ownership
+  turn_h: 'human_turn'
+  turn_r: 'robot_turn'
+  turn_no: 'not_owned'
+
+
+
+GazeBehavSpec:
+  aversion_dur_range: [0.5, 2.0]
+  aversion_mean_interval: 5.0
+
+NoddingSpec:
+  mean_interval: 5.0
+
+HUMSpec:
+  human_turn:
+    mean_interval: 5.0
+        
+  robot_turn:
+    mean_interval: 5.0
+
