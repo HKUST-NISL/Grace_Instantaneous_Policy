@@ -81,8 +81,47 @@ class InstantaneousPolicy(StateMachine):
         self.__config_data = loadConfig(path)
 
 
-    def applyPolicy(self, state_pace, state_turn):
+    '''
+    Question:
+        Format of template actions (bc)?
+        Format of the output action definitions?
+    '''
+
+
+    def applyPolicy(self, state_inst, state_prog):
+        gaze_action = gazePolicy(state_inst, state_prog)
+        bc_action = bcPolicy(state_inst, state_prog)
+        return Merge(gaze_action, bc_action)
+
+    def gazePolicy(self, state_inst, state_prog):
+        #No aversion when the robot is speaking
+        if( state_inst['robot_speaking']['val'] ):
+            #Do following
+            pass
+        else:
+            #Alternate between following and aversion 
+            #by an exponential distribution
+            pass
         pass
+
+
+
+
+    def bcPolicy(self, state_inst, state_prog):
+        #No bc when the robot is speaking (either a stretch of speech or a bc is playing)
+        if( state_inst['robot_speaking']['val'] ):
+            #No bc
+            pass
+        else:
+            if( state_inst['turn_ownership']['val'] == 'human_turn' ):
+                #In human's turn, bc by acknowledgement and nodding 
+                #by an exponential distribution
+                pass
+            else:
+                #In robot's turn or indefinite turn,
+                #bc by (different) acknowledgement
+                pass
+                
 
 
 
