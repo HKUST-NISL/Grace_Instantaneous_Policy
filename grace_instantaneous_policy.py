@@ -82,20 +82,37 @@ class InstantaneousPolicy(StateMachine):
 
 
 
-    def applyPolicy(self, state_inst, state_prog):
-        gaze_action = self.__gazePolicy(state_inst, state_prog)
-        bc_action = self.__bcPolicy(state_inst, state_prog)
+    def applyPolicy(self, state_inst):
+        gaze_action = self.__gazePolicy(state_inst)
+        bc_action = self.__bcPolicy(state_inst)
         return {'gaze_action': gaze_action, 'bc_action': bc_action}
 
-    def __gazePolicy(self, state_inst, state_prog):
-        gaze_action = ''
-        if( state_inst['robot_speaking']['val'] == self.__config_data['StateCode']['r_speaking'] ):
-            #When robot is speaking (be it bc or genuine speech), gaze should be following
+    def __gazePolicy(self, state_inst):
+        gaze_action = None
+        if(self.__macro_robot_uttering(state_inst)):
+            #When robot is speaking or humming , gaze should be following
             gaze_action = 'following'
         else:
             #When robot is not speaking, alternate between following and aversion
             gaze_action = self.__alternatingGazeAction(state_inst)
         return gaze_action
+
+    def __macro_robot_uttering(self, state_inst):
+        #robot is speaking or humming
+        return (state_inst['robot_speaking']['val'] == self.__config_data['StateCode']['r_speaking'] 
+                or
+                state_inst['robot_humming']['val'] == self.__config_data['StateCode']['r_humming'])
+
+    def __macro_robot_uttering_transition(self, state_inst):
+        #robot uttering state transition just occurred
+        return (state_inst['robot_speaking']['transition']
+                or
+                state_inst['robot_humming']['transition'])
+
+    def __macro_robot_just_stopped_averting(self, state_inst):
+        #robot gaze just starts following
+        return (state_inst['robot_gaze']['val'] == state_inst['StateCode']['r_following'] 
+                and state_inst['robot_gaze']['transition'])
 
     def __alternatingGazeAction(self,state_inst):
         #Refer to the timestamp of the aversion / following state to decide whether 
@@ -103,11 +120,11 @@ class InstantaneousPolicy(StateMachine):
         gaze_action = None
 
         #Sample critical time stamps
-        if( state_inst['robot_speaking']['transition'] #If robot just finished speaking
-            or (
-                state_inst['robot_gaze']['val'] == state_inst['StateCode']['r_following'] #Or if robot just starts following
-                and state_inst['robot_gaze']['transition']
-                )
+        if( 
+            #If robot just finished speaking or humming (enteres here means not uttering & transition flag)
+            self.__macro_robot_uttering_transition(state_inst) 
+            #or if the robot just starts to do following
+            or self.__macro_robot_just_stopped_averting(state_inst)
             ):
             #Sample a time interval after which we will start aversion
             self.__next_aversion_interval = numpy.random.exponential(
@@ -126,6 +143,7 @@ class InstantaneousPolicy(StateMachine):
             if( dur_gaze_state >= self.__aversion_dur):
                 gaze_action = 'following' #Timeup, back to following
 
+        return gaze_action
 
     def __bcPolicy(self, state_inst, state_prog):
         bc_action = {}
@@ -139,15 +157,14 @@ class InstantaneousPolicy(StateMachine):
             #In indefinite / robot's turn, (don't further specify for now)
             bc_action = self.__robotTurnBC(state_inst)
 
-        return bc_action
-        
+        return bc_action 
 
     def __humanTurnBC(self, state_inst):
-        #Refer to the timestamp of the robot not-speaking state & robot not-nodding state
+        #Refer to the timestamp of the robot not-humming state & robot not-nodding state
         #to decide whether the robot should output some bc at this instant
         bc_action = None
 
-        #For now we use a standard routine  with different specs
+        #For now we use a standard routine with different specs
         nodding_trigger = __standardBCTrigger(
                                 'robot_nodding',
                                 self.__config_data['StateCode']['r_n_nodding'],
@@ -156,8 +173,8 @@ class InstantaneousPolicy(StateMachine):
 
 
         hum_trigger = __standardBCTrigger(
-                                'robot_speaking',
-                                self.__config_data['StateCode']['r_n_speaking'],
+                                'robot_humming',
+                                self.__config_data['StateCode']['r_n_humming'],
                                 self.__config_data['HUMSpec']['human_turn']['mean_interval'])
         if(hum_trigger):
             bc_action['hum'] = 'human turn hum'
@@ -179,8 +196,8 @@ class InstantaneousPolicy(StateMachine):
         else:
             #For now we use a standard routine  with different specs
             hum_trigger = __standardBCTrigger(
-                                    'robot_speaking',
-                                    self.__config_data['StateCode']['r_n_speaking'],
+                                    'robot_humming',
+                                    self.__config_data['StateCode']['r_n_humming'],
                                     self.__config_data['HUMSpec']['robot_turn']['mean_interval'])
             if(hum_trigger):
                 bc_action['hum'] = 'human turn hum'

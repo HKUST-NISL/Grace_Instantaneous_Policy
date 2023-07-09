@@ -3,6 +3,9 @@ StateCode:
   r_speaking: 'speaking'
   r_n_speaking: 'not_speaking'
 
+  r_humming:  'humming'
+  r_n_humming: 'not_humming'
+
   r_nodding: 'nodding'
   r_n_nodding: 'not_nodding'
 
