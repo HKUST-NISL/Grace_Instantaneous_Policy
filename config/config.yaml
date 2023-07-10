@@ -22,7 +22,8 @@ StateCode:
   turn_r: 'robot_turn'
   turn_no: 'not_owned'
 
-
+  #Misc
+  no_stamp_val: -1
 
 GazeBehavSpec:
   aversion_dur_range: [0.5, 2.0]
