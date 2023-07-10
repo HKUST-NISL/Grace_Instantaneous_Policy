@@ -133,15 +133,21 @@ class InstantaneousPolicy(StateMachine):
             self.__aversion_dur = numpy.random.uniform(
                         self.__config_data['GazeBehavSpec']['aversion_dur_range'][0],
                         self.__config_data['GazeBehavSpec']['aversion_dur_range'][1])
+            self.__logger.info("Next aversion in %f sec, dur %f." % (self.__next_aversion_interval, self.__aversion_dur) )
+
 
         #Check against time stamps
         dur_gaze_state = time.time() - state_inst['robot_gaze']['stamp']
         if( state_inst['robot_gaze']['val'] == state_inst['StateCode']['r_following'] ):
             if( dur_gaze_state >= self.__next_aversion_interval):
                 gaze_action = 'aversion' #Timeup, start aversion
+                self.__logger.info("Start aversion")
+
+
         else:
             if( dur_gaze_state >= self.__aversion_dur):
                 gaze_action = 'following' #Timeup, back to following
+                self.__logger.info("Start following")
 
         return gaze_action
 
@@ -218,6 +224,8 @@ class InstantaneousPolicy(StateMachine):
         if( sample_trigger ):
             #Sample for the interval till next BC
             self.__bc_stamp[monitored_state] = numpy.random.exponential(mean_interval)
+            self.__logger.info("Next %s in %f sec." % (monitored_state ,self.__bc_stamp[monitored_state]))
+
 
         #Compar against the sampled interval
         if( not_acting ):
