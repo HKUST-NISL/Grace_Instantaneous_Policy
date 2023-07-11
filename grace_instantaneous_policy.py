@@ -231,8 +231,8 @@ class InstantaneousPolicy(StateMachine):
             #force a special bc immediately, including nodding and utterance immediately
             bc_action['hum'] = 'special confirm bc'
 
-            #For debugging
-            self.__bc_interval['robot_humming'] = 0.20
+            # #For debugging
+            # self.__bc_interval['robot_humming'] = 0.20
 
             return bc_action 
         else:
