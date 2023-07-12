@@ -1,7 +1,7 @@
 # Ignore any network weights
 *.pt
 logs
-head_images/
-__pycache__/
+head_images
+__pycache__
 *.pyc
 
