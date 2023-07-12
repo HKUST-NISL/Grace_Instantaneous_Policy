@@ -39,7 +39,13 @@ def handle_sigint(signalnum, frame):
     print('Main interrupted! Exiting.')
     sys.exit()
 
-
+def sample_rectified_exponential(mean, min_val, max_val):
+    return min(max_val,
+               max(
+                    min_val,
+                    numpy.random.exponential(mean)
+               )
+              )
 
 class InstantaneousPolicy(StateMachine):
 
@@ -122,10 +128,12 @@ class InstantaneousPolicy(StateMachine):
             or self.__macro_robot_just_stopped_averting(state_inst)
             ):
             #Sample a time interval after which we will start aversion
-            self.__next_aversion_interval = max(
-                        self.__config_data['InstPolicy']['GazeBehavSpec']['aversion_min_interval'],
-                        numpy.random.exponential(self.__config_data['InstPolicy']['GazeBehavSpec']['aversion_mean_interval'])
-                        )
+            self.__next_aversion_interval = sample_rectified_exponential(
+                    self.__config_data['InstPolicy']['GazeBehavSpec']['aversion_mean_interval'],
+                    self.__config_data['InstPolicy']['GazeBehavSpec']['aversion_min_interval'],
+                    self.__config_data['InstPolicy']['GazeBehavSpec']['aversion_max_interval']
+                    )
+
             #Sample the duration of performing aversion
             self.__aversion_dur = numpy.random.uniform(
                         self.__config_data['InstPolicy']['GazeBehavSpec']['aversion_dur_range'][0],
@@ -187,7 +195,8 @@ class InstantaneousPolicy(StateMachine):
                                 'robot_nodding',
                                 self.__config_data['InstState']['StateCode']['r_n_nodding'],
                                 self.__config_data['InstPolicy']['NoddingSpec']['mean_interval'],
-                                self.__config_data['InstPolicy']['NoddingSpec']['min_interval'])
+                                self.__config_data['InstPolicy']['NoddingSpec']['min_interval'],
+                                self.__config_data['InstPolicy']['NoddingSpec']['max_interval'])
         if(nodding_trigger):
             bc_action['nodding'] = self.__config_data['BehavExec']['General']['nod_cmd']
         else:
@@ -199,7 +208,8 @@ class InstantaneousPolicy(StateMachine):
                                 'robot_humming',
                                 self.__config_data['InstState']['StateCode']['r_n_humming'],
                                 self.__config_data['InstPolicy']['HUMSpec']['human_turn']['mean_interval'],
-                                self.__config_data['InstPolicy']['HUMSpec']['human_turn']['min_interval'])
+                                self.__config_data['InstPolicy']['HUMSpec']['human_turn']['min_interval'],
+                                self.__config_data['InstPolicy']['HUMSpec']['human_turn']['max_interval'])
         if(hum_trigger):
             bc_action['hum'] = 'human turn hum'
         else:
@@ -221,7 +231,8 @@ class InstantaneousPolicy(StateMachine):
                                 'robot_humming',
                                 self.__config_data['InstState']['StateCode']['r_n_humming'],
                                 self.__config_data['InstPolicy']['HUMSpec']['robot_turn']['mean_interval'],
-                                self.__config_data['InstPolicy']['HUMSpec']['robot_turn']['min_interval'])
+                                self.__config_data['InstPolicy']['HUMSpec']['robot_turn']['min_interval'],
+                                self.__config_data['InstPolicy']['HUMSpec']['robot_turn']['max_interval'])
 
         if( state_inst['turn_ownership']['transition'] ):
             #Just transisted from human turn to robot turn
@@ -254,7 +265,8 @@ class InstantaneousPolicy(StateMachine):
                     monitored_state,
                     not_acting_state_val,
                     mean_interval,
-                    min_interval):
+                    min_interval,
+                    max_interval):
         perform_BC = False
 
         #If we are currently in the not-acting state
@@ -269,7 +281,7 @@ class InstantaneousPolicy(StateMachine):
 
         if( sample_trigger ):
             #Sample for the interval till next BC
-            self.__bc_interval[monitored_state] = max(min_interval, numpy.random.exponential(mean_interval))
+            self.__bc_interval[monitored_state] = sample_rectified_exponential(mean_interval,min_interval,max_interval)
             self.__logger.info("Next %s in %f sec." % (monitored_state ,self.__bc_interval[monitored_state]))
 
 
