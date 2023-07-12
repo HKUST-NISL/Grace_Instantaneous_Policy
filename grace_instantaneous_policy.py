@@ -28,14 +28,6 @@ import hr_msgs.srv
 import std_msgs
 
 
-#Load configs
-def loadConfig(path):
-    #Load configs
-    with open(path, "r") as config_file:
-        config_data = yaml.load(config_file, Loader=yaml.FullLoader)
-        # print("Config file loaded")
-    return config_data
-
 #Create Logger
 def setupLogger(file_log_level, terminal_log_level, logger_name, log_file_name):
     log_formatter = logging.Formatter('%(asctime)s %(msecs)03d %(name)s %(levelname)s %(funcName)s(%(lineno)d) %(message)s', 
@@ -68,7 +60,7 @@ def handle_sigint(signalnum, frame):
 
 class InstantaneousPolicy(StateMachine):
 
-    def __init__(self):
+    def __init__(self, config_data):
         #miscellaneous
         signal(SIGINT, handle_sigint)
         self.__logger = setupLogger(
@@ -77,20 +69,19 @@ class InstantaneousPolicy(StateMachine):
                     self.__class__.__name__,
                     "./logs/log_" + datetime.now().strftime("%a_%d_%b_%Y_%I_%M_%S_%p"))
 
-        path = os.path.dirname(os.path.realpath(getsourcefile(lambda:0))) + "/config/config.yaml"
-        self.__config_data = loadConfig(path)
+        self.__config_data = config_data
 
         #policy related
-        self.__next_aversion_interval = self.__config_data['StateCode']['no_stamp_val']
-        self.__aversion_dur = self.__config_data['StateCode']['no_stamp_val']
+        self.__next_aversion_interval = self.__config_data['InstPolicy']['Misc']['no_stamp_val']
+        self.__aversion_dur = self.__config_data['InstPolicy']['Misc']['no_stamp_val']
 
         self.__bc_ref_stamp = {
-                            'robot_nodding': self.__config_data['StateCode']['no_stamp_val'], 
-                            'robot_humming': self.__config_data['StateCode']['no_stamp_val']
+                            'robot_nodding': self.__config_data['InstPolicy']['Misc']['no_stamp_val'], 
+                            'robot_humming': self.__config_data['InstPolicy']['Misc']['no_stamp_val']
                             }
         self.__bc_interval = {
-                            'robot_nodding': self.__config_data['StateCode']['no_stamp_val'], 
-                            'robot_humming': self.__config_data['StateCode']['no_stamp_val']
+                            'robot_nodding': self.__config_data['InstPolicy']['Misc']['no_stamp_val'], 
+                            'robot_humming': self.__config_data['InstPolicy']['Misc']['no_stamp_val']
                             }
 
 
@@ -111,9 +102,9 @@ class InstantaneousPolicy(StateMachine):
 
     def __macro_robot_uttering(self, state_inst):
         #robot is speaking or humming
-        return (state_inst['robot_speaking']['val'] == self.__config_data['StateCode']['r_speaking'] 
+        return (state_inst['robot_speaking']['val'] == self.__config_data['InstState']['StateCode']['r_speaking'] 
                 or
-                state_inst['robot_humming']['val'] == self.__config_data['StateCode']['r_humming'])
+                state_inst['robot_humming']['val'] == self.__config_data['InstState']['StateCode']['r_humming'])
 
     def __macro_robot_uttering_transition(self, state_inst):
         #robot uttering state transition just occurred
@@ -123,7 +114,7 @@ class InstantaneousPolicy(StateMachine):
 
     def __macro_robot_just_stopped_averting(self, state_inst):
         #robot gaze just starts following
-        return (state_inst['robot_gaze']['val'] == self.__config_data['StateCode']['r_following'] 
+        return (state_inst['robot_gaze']['val'] == self.__config_data['InstState']['StateCode']['r_following'] 
                 and state_inst['robot_gaze']['transition'])
 
     def __alternatingGazeAction(self,state_inst):
@@ -140,30 +131,30 @@ class InstantaneousPolicy(StateMachine):
             ):
             #Sample a time interval after which we will start aversion
             self.__next_aversion_interval = numpy.random.exponential(
-                        self.__config_data['GazeBehavSpec']['aversion_mean_interval'])
+                        self.__config_data['InstPolicy']['GazeBehavSpec']['aversion_mean_interval'])
             #Sample the duration of performing aversion
             self.__aversion_dur = numpy.random.uniform(
-                        self.__config_data['GazeBehavSpec']['aversion_dur_range'][0],
-                        self.__config_data['GazeBehavSpec']['aversion_dur_range'][1])
+                        self.__config_data['InstPolicy']['GazeBehavSpec']['aversion_dur_range'][0],
+                        self.__config_data['InstPolicy']['GazeBehavSpec']['aversion_dur_range'][1])
             self.__logger.info("Next aversion in %f sec, dur %f." % (self.__next_aversion_interval, self.__aversion_dur) )
 
 
         #Check against time stamps
         dur_gaze_state = time.time() - state_inst['robot_gaze']['stamp']
-        if( state_inst['robot_gaze']['val'] == self.__config_data['StateCode']['r_following'] ):
-            if( self.__next_aversion_interval != self.__config_data['StateCode']['no_stamp_val']
+        if( state_inst['robot_gaze']['val'] == self.__config_data['InstState']['StateCode']['r_following'] ):
+            if( self.__next_aversion_interval != self.__config_data['InstPolicy']['Misc']['no_stamp_val']
                 and
                 dur_gaze_state >= self.__next_aversion_interval):
                 gaze_action = 'aversion' #Timeup, start aversion
                 self.__logger.info("Start aversion")
-                self.__next_aversion_interval = self.__config_data['StateCode']['no_stamp_val']
+                self.__next_aversion_interval = self.__config_data['InstPolicy']['Misc']['no_stamp_val']
         else:
-            if( self.__aversion_dur != self.__config_data['StateCode']['no_stamp_val']
+            if( self.__aversion_dur != self.__config_data['InstPolicy']['Misc']['no_stamp_val']
                 and
                 dur_gaze_state >= self.__aversion_dur):
                 gaze_action = 'following' #Timeup, back to following
                 self.__logger.info("Start following")
-                self.__aversion_dur = self.__config_data['StateCode']['no_stamp_val']
+                self.__aversion_dur = self.__config_data['InstPolicy']['Misc']['no_stamp_val']
 
         return gaze_action
 
@@ -175,7 +166,7 @@ class InstantaneousPolicy(StateMachine):
             self.__clearAllTriggers()
 
 
-        if( state_inst['turn_ownership']['val'] == self.__config_data['StateCode']['turn_h'] ):
+        if( state_inst['turn_ownership']['val'] == self.__config_data['InstState']['StateCode']['turn_h'] ):
             #In human's turn, (don't further specify for now)
             bc_action = self.__humanTurnBC(state_inst)
         else:
@@ -193,8 +184,8 @@ class InstantaneousPolicy(StateMachine):
         nodding_trigger = self.__standardBCTrigger(
                                 state_inst,
                                 'robot_nodding',
-                                self.__config_data['StateCode']['r_n_nodding'],
-                                self.__config_data['NoddingSpec']['mean_interval'])
+                                self.__config_data['InstState']['StateCode']['r_n_nodding'],
+                                self.__config_data['InstPolicy']['NoddingSpec']['mean_interval'])
         bc_action['nodding'] = nodding_trigger
 
 
@@ -202,8 +193,8 @@ class InstantaneousPolicy(StateMachine):
         hum_trigger = self.__standardBCTrigger(
                                 state_inst,
                                 'robot_humming',
-                                self.__config_data['StateCode']['r_n_humming'],
-                                self.__config_data['HUMSpec']['human_turn']['mean_interval'])
+                                self.__config_data['InstState']['StateCode']['r_n_humming'],
+                                self.__config_data['InstPolicy']['HUMSpec']['human_turn']['mean_interval'])
         if(hum_trigger):
             bc_action['hum'] = 'human turn hum'
         else:
@@ -223,8 +214,8 @@ class InstantaneousPolicy(StateMachine):
         hum_trigger = self.__standardBCTrigger(
                                 state_inst,
                                 'robot_humming',
-                                self.__config_data['StateCode']['r_n_humming'],
-                                self.__config_data['HUMSpec']['robot_turn']['mean_interval'])
+                                self.__config_data['InstState']['StateCode']['r_n_humming'],
+                                self.__config_data['InstPolicy']['HUMSpec']['robot_turn']['mean_interval'])
 
         if( state_inst['turn_ownership']['transition'] ):
             #Just transisted from human turn to robot turn
@@ -246,12 +237,12 @@ class InstantaneousPolicy(StateMachine):
 
     def __clearAllTriggers(self):
         self.__bc_ref_stamp = {
-                            'robot_nodding': self.__config_data['StateCode']['no_stamp_val'], 
-                            'robot_humming': self.__config_data['StateCode']['no_stamp_val']
+                            'robot_nodding': self.__config_data['InstPolicy']['Misc']['no_stamp_val'], 
+                            'robot_humming': self.__config_data['InstPolicy']['Misc']['no_stamp_val']
                             }
         self.__bc_interval = {
-                            'robot_nodding': self.__config_data['StateCode']['no_stamp_val'], 
-                            'robot_humming': self.__config_data['StateCode']['no_stamp_val']
+                            'robot_nodding': self.__config_data['InstPolicy']['Misc']['no_stamp_val'], 
+                            'robot_humming': self.__config_data['InstPolicy']['Misc']['no_stamp_val']
                             }
 
 
@@ -270,7 +261,7 @@ class InstantaneousPolicy(StateMachine):
             self.__bc_ref_stamp[monitored_state] = state_inst[monitored_state]['stamp']
 
         #Whether we need to sample a new interval
-        sample_trigger = not_acting and (self.__bc_interval[monitored_state] == self.__config_data['StateCode']['no_stamp_val'])
+        sample_trigger = not_acting and (self.__bc_interval[monitored_state] == self.__config_data['InstPolicy']['Misc']['no_stamp_val'])
 
         if( sample_trigger ):
             #Sample for the interval till next BC
@@ -281,14 +272,14 @@ class InstantaneousPolicy(StateMachine):
         #Compar against the sampled interval
         if( not_acting ):
             not_acting_dur = time.time() - self.__bc_ref_stamp[monitored_state]
-            if( self.__bc_interval[monitored_state] != self.__config_data['StateCode']['no_stamp_val']
+            if( self.__bc_interval[monitored_state] != self.__config_data['InstPolicy']['Misc']['no_stamp_val']
                 and
                 not_acting_dur >= self.__bc_interval[monitored_state]):
 
                 perform_BC = True
 
                 #Clear interval, update ref stamp
-                self.__bc_interval[monitored_state] = self.__config_data['StateCode']['no_stamp_val']
+                self.__bc_interval[monitored_state] = self.__config_data['InstPolicy']['Misc']['no_stamp_val']
                 self.__bc_ref_stamp[monitored_state] = time.time()
 
 
