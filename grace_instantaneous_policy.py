@@ -79,12 +79,16 @@ class InstantaneousPolicy(StateMachine):
         return {'gaze_action': gaze_action, 'bc_action': bc_action}
 
     def __gazePolicy(self, state_inst):
-        gaze_action = ''
+        gaze_action = None
         if(self.__macro_robot_uttering(state_inst)):
-            #When robot is speaking or humming , gaze should be following
-            gaze_action = 'following'
+            #When robot starts speaking or humming , gaze should be following
+            if(self.__macro_robot_uttering_transition(state_inst)):
+                gaze_action = self.__config_data['BehavExec']['General']['head_gaze_follow']
+            else:
+                #No need to repeated publish following command
+                pass
         else:
-            #When robot is not speaking, alternate between following and aversion
+            #When robot is not uttering anything, alternate between following and aversion
             gaze_action = self.__alternatingGazeAction(state_inst)
         return gaze_action
 
@@ -108,7 +112,7 @@ class InstantaneousPolicy(StateMachine):
     def __alternatingGazeAction(self,state_inst):
         #Refer to the timestamp of the aversion / following state to decide whether 
         #the robot should alternate gaze behavior at this iteration
-        gaze_action = ''
+        gaze_action = None
 
         #Sample critical time stamps
         if( 
@@ -133,16 +137,24 @@ class InstantaneousPolicy(StateMachine):
             if( self.__next_aversion_interval != self.__config_data['InstPolicy']['Misc']['no_stamp_val']
                 and
                 dur_gaze_state >= self.__next_aversion_interval):
-                gaze_action = 'aversion' #Timeup, start aversion
+                gaze_action = self.__config_data['BehavExec']['General']['head_gaze_avert'] #Following timeup, start aversion
                 self.__logger.info("Start aversion")
                 self.__next_aversion_interval = self.__config_data['InstPolicy']['Misc']['no_stamp_val']
+            else:
+                ##No need to repeatedly publish following command
+                #gaze_action = self.__config_data['BehavExec']['General']['head_gaze_follow']
+                pass
         else:
             if( self.__aversion_dur != self.__config_data['InstPolicy']['Misc']['no_stamp_val']
                 and
                 dur_gaze_state >= self.__aversion_dur):
-                gaze_action = 'following' #Timeup, back to following
+                gaze_action = self.__config_data['BehavExec']['General']['head_gaze_follow'] #Aversion timeup, back to following
                 self.__logger.info("Start following")
                 self.__aversion_dur = self.__config_data['InstPolicy']['Misc']['no_stamp_val']
+            else:
+                ##No need to repeatedly publish aversion command
+                #gaze_action = self.__config_data['BehavExec']['General']['head_gaze_avert']
+                pass 
 
         return gaze_action
 
@@ -174,8 +186,10 @@ class InstantaneousPolicy(StateMachine):
                                 'robot_nodding',
                                 self.__config_data['InstState']['StateCode']['r_n_nodding'],
                                 self.__config_data['InstPolicy']['NoddingSpec']['mean_interval'])
-        bc_action['nodding'] = nodding_trigger
-
+        if(nodding_trigger):
+            bc_action['nodding'] = self.__config_data['BehavExec']['General']['nod_cmd']
+        else:
+            bc_action['nodding'] = None
 
         #Hum policy routine
         hum_trigger = self.__standardBCTrigger(
@@ -186,7 +200,7 @@ class InstantaneousPolicy(StateMachine):
         if(hum_trigger):
             bc_action['hum'] = 'human turn hum'
         else:
-            bc_action['hum'] = ''
+            bc_action['hum'] = None
 
         return bc_action
             
@@ -196,7 +210,7 @@ class InstantaneousPolicy(StateMachine):
         bc_action = {}
 
         #No nodding in robot turn
-        bc_action['nodding'] = False
+        bc_action['nodding'] = None
 
         #Hum policy routine
         hum_trigger = self.__standardBCTrigger(
@@ -210,15 +224,12 @@ class InstantaneousPolicy(StateMachine):
             #force a special bc immediately, including nodding and utterance immediately
             bc_action['hum'] = 'special confirm bc'
 
-            # #For debugging
-            # self.__bc_interval['robot_humming'] = 0.20
-
             return bc_action 
         else:
             if(hum_trigger):
                 bc_action['hum'] = 'robot turn hum'
             else:
-                bc_action['hum'] = ''
+                bc_action['hum'] = None
 
         return bc_action
 
