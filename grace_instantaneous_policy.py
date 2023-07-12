@@ -122,8 +122,10 @@ class InstantaneousPolicy(StateMachine):
             or self.__macro_robot_just_stopped_averting(state_inst)
             ):
             #Sample a time interval after which we will start aversion
-            self.__next_aversion_interval = numpy.random.exponential(
-                        self.__config_data['InstPolicy']['GazeBehavSpec']['aversion_mean_interval'])
+            self.__next_aversion_interval = max(
+                        self.__config_data['InstPolicy']['GazeBehavSpec']['aversion_min_interval'],
+                        numpy.random.exponential(self.__config_data['InstPolicy']['GazeBehavSpec']['aversion_mean_interval'])
+                        )
             #Sample the duration of performing aversion
             self.__aversion_dur = numpy.random.uniform(
                         self.__config_data['InstPolicy']['GazeBehavSpec']['aversion_dur_range'][0],
@@ -172,7 +174,6 @@ class InstantaneousPolicy(StateMachine):
         else:
             #In indefinite / robot's turn, (don't further specify for now)
             bc_action = self.__robotTurnBC(state_inst)
-
         return bc_action 
 
     def __humanTurnBC(self, state_inst):
@@ -185,7 +186,8 @@ class InstantaneousPolicy(StateMachine):
                                 state_inst,
                                 'robot_nodding',
                                 self.__config_data['InstState']['StateCode']['r_n_nodding'],
-                                self.__config_data['InstPolicy']['NoddingSpec']['mean_interval'])
+                                self.__config_data['InstPolicy']['NoddingSpec']['mean_interval'],
+                                self.__config_data['InstPolicy']['NoddingSpec']['min_interval'])
         if(nodding_trigger):
             bc_action['nodding'] = self.__config_data['BehavExec']['General']['nod_cmd']
         else:
@@ -196,7 +198,8 @@ class InstantaneousPolicy(StateMachine):
                                 state_inst,
                                 'robot_humming',
                                 self.__config_data['InstState']['StateCode']['r_n_humming'],
-                                self.__config_data['InstPolicy']['HUMSpec']['human_turn']['mean_interval'])
+                                self.__config_data['InstPolicy']['HUMSpec']['human_turn']['mean_interval'],
+                                self.__config_data['InstPolicy']['HUMSpec']['human_turn']['min_interval'])
         if(hum_trigger):
             bc_action['hum'] = 'human turn hum'
         else:
@@ -217,7 +220,8 @@ class InstantaneousPolicy(StateMachine):
                                 state_inst,
                                 'robot_humming',
                                 self.__config_data['InstState']['StateCode']['r_n_humming'],
-                                self.__config_data['InstPolicy']['HUMSpec']['robot_turn']['mean_interval'])
+                                self.__config_data['InstPolicy']['HUMSpec']['robot_turn']['mean_interval'],
+                                self.__config_data['InstPolicy']['HUMSpec']['robot_turn']['min_interval'])
 
         if( state_inst['turn_ownership']['transition'] ):
             #Just transisted from human turn to robot turn
@@ -249,7 +253,8 @@ class InstantaneousPolicy(StateMachine):
                     state_inst,
                     monitored_state,
                     not_acting_state_val,
-                    mean_interval):
+                    mean_interval,
+                    min_interval):
         perform_BC = False
 
         #If we are currently in the not-acting state
@@ -264,11 +269,11 @@ class InstantaneousPolicy(StateMachine):
 
         if( sample_trigger ):
             #Sample for the interval till next BC
-            self.__bc_interval[monitored_state] = numpy.random.exponential(mean_interval)
+            self.__bc_interval[monitored_state] = max(min_interval, numpy.random.exponential(mean_interval))
             self.__logger.info("Next %s in %f sec." % (monitored_state ,self.__bc_interval[monitored_state]))
 
 
-        #Compar against the sampled interval
+        #Compare against the sampled interval
         if( not_acting ):
             not_acting_dur = time.time() - self.__bc_ref_stamp[monitored_state]
             if( self.__bc_interval[monitored_state] != self.__config_data['InstPolicy']['Misc']['no_stamp_val']
