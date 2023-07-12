@@ -27,28 +27,11 @@ import hr_msgs.cfg
 import hr_msgs.srv
 import std_msgs
 
-
-#Create Logger
-def setupLogger(file_log_level, terminal_log_level, logger_name, log_file_name):
-    log_formatter = logging.Formatter('%(asctime)s %(msecs)03d %(name)s %(levelname)s %(funcName)s(%(lineno)d) %(message)s', 
-                                  datefmt='%d/%m/%Y %H:%M:%S')
-
-    f = open(log_file_name, "a")
-    f.close()
-    file_handler = logging.FileHandler(log_file_name)
-    file_handler.setFormatter(log_formatter)
-    file_handler.setLevel(file_log_level)
-
-    stream_handler = logging.StreamHandler()
-    stream_handler.setFormatter(log_formatter)
-    stream_handler.setLevel(terminal_log_level)
-
-    logger = logging.getLogger(logger_name)
-    logger.addHandler(file_handler)
-    logger.addHandler(stream_handler)
-    logger.setLevel( min(file_log_level,terminal_log_level) )#set to lowest
-
-    return logger
+#Misc
+file_path = os.path.dirname(os.path.realpath(getsourcefile(lambda:0)))
+sys.path.append(os.path.join(file_path, '..'))
+from CommonConfigs.grace_cfg_loader import *
+from CommonConfigs.logging import setupLogger
 
 #Respond to exit signal
 def handle_sigint(signalnum, frame):
@@ -60,14 +43,19 @@ def handle_sigint(signalnum, frame):
 
 class InstantaneousPolicy(StateMachine):
 
-    def __init__(self, config_data):
+    def __init__(self, config_data, logger = None):
         #miscellaneous
         signal(SIGINT, handle_sigint)
-        self.__logger = setupLogger(
-                    logging.DEBUG, 
-                    logging.INFO, 
-                    self.__class__.__name__,
-                    "./logs/log_" + datetime.now().strftime("%a_%d_%b_%Y_%I_%M_%S_%p"))
+
+        #Policy uses its own logger (output to its own dir) or the input logger
+        if(logger == None):
+            self.__logger = setupLogger(
+                        logging.DEBUG, 
+                        logging.INFO, 
+                        self.__class__.__name__,
+                        os.path.join(file_path,"./logs/log_") + datetime.now().strftime("%a_%d_%b_%Y_%I_%M_%S_%p"))
+        else:
+            self.__logger = logger.getChild(self.__class__.__name__)
 
         self.__config_data = config_data
 
