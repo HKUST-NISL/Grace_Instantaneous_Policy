@@ -148,7 +148,7 @@ class InstantaneousPolicy(StateMachine):
                 and
                 dur_gaze_state >= self.__next_aversion_interval):
                 gaze_action = self.__config_data['BehavExec']['General']['head_gaze_avert'] #Following timeup, start aversion
-                self.__logger.info("Start aversion")
+                # self.__logger.debug("Start aversion")
                 self.__next_aversion_interval = self.__config_data['InstPolicy']['Misc']['no_stamp_val']
             else:
                 ##No need to repeatedly publish following command
@@ -159,7 +159,7 @@ class InstantaneousPolicy(StateMachine):
                 and
                 dur_gaze_state >= self.__aversion_dur):
                 gaze_action = self.__config_data['BehavExec']['General']['head_gaze_follow'] #Aversion timeup, back to following
-                self.__logger.info("Start following")
+                # self.__logger.debug("Start following")
                 self.__aversion_dur = self.__config_data['InstPolicy']['Misc']['no_stamp_val']
             else:
                 ##No need to repeatedly publish aversion command
