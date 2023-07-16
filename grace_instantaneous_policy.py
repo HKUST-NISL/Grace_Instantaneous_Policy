@@ -53,17 +53,19 @@ class InstantaneousPolicy(StateMachine):
         #miscellaneous
         signal(SIGINT, handle_sigint)
 
+        #Config
+        self.__config_data = config_data
+
         #Policy uses its own logger (output to its own dir) or the input logger
         if(logger == None):
             self.__logger = setupLogger(
                         logging.DEBUG, 
                         logging.INFO, 
                         self.__class__.__name__,
-                        os.path.join(file_path,"./logs/log_") + datetime.now().strftime("%a_%d_%b_%Y_%I_%M_%S_%p"))
+                        os.path.join(file_path,"./logs/log_") + datetime.now().strftime(self.__config_data['Custom']['Logging']['time_format']))
         else:
             self.__logger = logger.getChild(self.__class__.__name__)
 
-        self.__config_data = config_data
 
         #policy related
         self.__next_aversion_interval = self.__config_data['InstPolicy']['Misc']['no_stamp_val']
