@@ -32,6 +32,10 @@ file_path = os.path.dirname(os.path.realpath(getsourcefile(lambda:0)))
 sys.path.append(os.path.join(file_path, '..'))
 from CommonConfigs.grace_cfg_loader import *
 from CommonConfigs.logging import setupLogger
+from Grace_Instantaneous_Policy.utils.bc_database_reader import database_reader
+
+
+
 
 #Respond to exit signal
 def handle_sigint(signalnum, frame):
@@ -55,6 +59,12 @@ class InstantaneousPolicy(StateMachine):
 
         #Config
         self.__config_data = config_data
+
+        #Behavior specifications
+        self.__database_reader = database_reader(
+                        filename=os.path.join(file_path,"database",self.__config_data['InstPolicy']['HUMSpec']['data_base_name']))
+
+
 
         #Policy uses its own logger (output to its own dir) or the input logger
         if(logger == None):
@@ -223,7 +233,8 @@ class InstantaneousPolicy(StateMachine):
         if(hum_trigger):
                 bc_action['hum'] = {
                     'cmd': self.__config_data['BehavExec']['General']['hum_behav_exec_cmd'],
-                    'content': self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_human_turn_hum']
+                    'content': self.__database_reader.lookup_table(
+                                    self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_human_turn_hum'])
                     }
         else:
             bc_action['hum'] = None
@@ -247,29 +258,32 @@ class InstantaneousPolicy(StateMachine):
                                 self.__config_data['InstPolicy']['HUMSpec']['robot_turn']['min_interval'],
                                 self.__config_data['InstPolicy']['HUMSpec']['robot_turn']['max_interval'])
 
-        if(self.__macro_human_turn_over(state_inst)):
-            #Just transisted from human turn to robot turn
-            #force a special bc immediately, including nodding and utterance immediately
+        # if(self.__macro_human_turn_over(state_inst)):
+        #     #Just transisted from human turn to robot turn
+        #     #force a special bc immediately, including nodding and utterance immediately
+        #     bc_action['hum'] = {
+        #         'cmd': self.__config_data['BehavExec']['General']['hum_behav_exec_cmd'],
+        #         'content': self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_special_col']
+        #         }
+        # else:
+        
+        if(hum_trigger):
+            content = None
+            if(state_inst['turn_ownership']['val'] == self.__config_data['InstState']['StateCode']['turn_r']):
+                content = self.__database_reader.lookup_table(
+                                    self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_robot_turn_hum'])
+            elif(state_inst['turn_ownership']['val'] == self.__config_data['InstState']['StateCode']['turn_no']):
+                content = self.__database_reader.lookup_table(
+                                    self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_not_owned_turn_hum'])
+            else:
+                self.__logger.error("Unexpected state!!")
+            
             bc_action['hum'] = {
                 'cmd': self.__config_data['BehavExec']['General']['hum_behav_exec_cmd'],
-                'content': self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_special_col']
+                'content': content
                 }
         else:
-            if(hum_trigger):
-                content = None
-                if(state_inst['turn_ownership']['val'] == self.__config_data['InstState']['StateCode']['turn_r']):
-                    content = self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_robot_turn_hum']
-                elif(state_inst['turn_ownership']['val'] == self.__config_data['InstState']['StateCode']['turn_no']):
-                    content = self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_not_owned_turn_hum']
-                else:
-                    self.__logger.error("Unexpected state!!")
-                
-                bc_action['hum'] = {
-                    'cmd': self.__config_data['BehavExec']['General']['hum_behav_exec_cmd'],
-                    'content': content
-                    }
-            else:
-                bc_action['hum'] = None
+            bc_action['hum'] = None
 
         return bc_action
 
