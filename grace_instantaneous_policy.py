@@ -182,14 +182,14 @@ class InstantaneousPolicy(StateMachine):
             #Reset the timing upon turn transition
             self.__clearAllTriggers()
 
-
-        if( state_inst['turn_ownership']['val'] == self.__config_data['InstState']['StateCode']['turn_h'] ):
-            #In human's turn, (don't further specify for now)
-            bc_action = self.__humanTurnBC(state_inst)
-        else:
-            #In indefinite / robot's turn, (don't further specify for now)
-            if( not self.__macro_robot_speaking(state_inst) ):
+        if( not self.__macro_robot_speaking(state_inst) ):
+            if( state_inst['turn_ownership']['val'] == self.__config_data['InstState']['StateCode']['turn_h'] ):
+                #In human's turn, (don't further specify for now)
+                bc_action = self.__humanTurnBC(state_inst)
+            else:
+                #In indefinite / robot's turn, (don't further specify for now)
                 bc_action = self.__robotTurnBC(state_inst)
+                
         return bc_action 
 
     def __humanTurnBC(self, state_inst):
@@ -263,17 +263,15 @@ class InstantaneousPolicy(StateMachine):
 
         return bc_action
 
-
     def __clearAllTriggers(self):
         self.__bc_ref_stamp = {
-                            time.time(), 
-                            time.time()
+                            'robot_nodding':  time.time(), 
+                            'robot_humming': time.time()
                             }
         self.__bc_interval = {
                             'robot_nodding': self.__config_data['InstPolicy']['Misc']['no_stamp_val'], 
                             'robot_humming': self.__config_data['InstPolicy']['Misc']['no_stamp_val']
                             }
-
 
     def __standardBCTrigger(self,
                     state_inst,
