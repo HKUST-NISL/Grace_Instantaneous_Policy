@@ -211,7 +211,10 @@ class InstantaneousPolicy(StateMachine):
                                 self.__config_data['InstPolicy']['HUMSpec']['human_turn']['min_interval'],
                                 self.__config_data['InstPolicy']['HUMSpec']['human_turn']['max_interval'])
         if(hum_trigger):
-            bc_action['hum'] = 'human turn hum'
+                bc_action['hum'] = {
+                                'cmd': self.__config_data['BehavExec']['General']['hum_behav_exec_cmd'],
+                                'content': self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_human_turn_hum']
+                    }
         else:
             bc_action['hum'] = None
 
@@ -237,12 +240,18 @@ class InstantaneousPolicy(StateMachine):
         if( state_inst['turn_ownership']['transition'] ):
             #Just transisted from human turn to robot turn
             #force a special bc immediately, including nodding and utterance immediately
-            bc_action['hum'] = 'special confirm bc'
+            bc_action['hum'] = {
+                            'cmd': self.__config_data['BehavExec']['General']['hum_behav_exec_cmd'],
+                            'content': self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_special_col']
+                }
 
             return bc_action 
         else:
             if(hum_trigger):
-                bc_action['hum'] = 'robot turn hum'
+                bc_action['hum'] = {
+                                'cmd': self.__config_data['BehavExec']['General']['hum_behav_exec_cmd'],
+                                'content': self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_robot_turn_hum']
+                    }
             else:
                 bc_action['hum'] = None
 
