@@ -168,8 +168,15 @@ class InstantaneousPolicy(StateMachine):
 
         return gaze_action
 
+    def __macro_robot_speaking(self, state_inst):
+        return state_inst['robot_speaking']['val'] == self.__config_data['InstState']['StateCode']['r_speaking'] 
+
+    def __macro_human_turn_over(self, state_inst):
+        return ( state_inst['turn_ownership']['transition'] 
+                and state_inst['turn_ownership']['from'] == self.__config_data['InstState']['StateCode']['turn_h'])
+
     def __bcPolicy(self, state_inst):
-        bc_action = {}
+        bc_action = {'nodding': None, 'hum': None}
 
         if(state_inst['turn_ownership']['transition']):
             #Reset the timing upon turn transition
@@ -181,7 +188,8 @@ class InstantaneousPolicy(StateMachine):
             bc_action = self.__humanTurnBC(state_inst)
         else:
             #In indefinite / robot's turn, (don't further specify for now)
-            bc_action = self.__robotTurnBC(state_inst)
+            if( not self.__macro_robot_speaking(state_inst) ):
+                bc_action = self.__robotTurnBC(state_inst)
         return bc_action 
 
     def __humanTurnBC(self, state_inst):
@@ -212,8 +220,8 @@ class InstantaneousPolicy(StateMachine):
                                 self.__config_data['InstPolicy']['HUMSpec']['human_turn']['max_interval'])
         if(hum_trigger):
                 bc_action['hum'] = {
-                                'cmd': self.__config_data['BehavExec']['General']['hum_behav_exec_cmd'],
-                                'content': self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_human_turn_hum']
+                    'cmd': self.__config_data['BehavExec']['General']['hum_behav_exec_cmd'],
+                    'content': self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_human_turn_hum']
                     }
         else:
             bc_action['hum'] = None
@@ -237,20 +245,18 @@ class InstantaneousPolicy(StateMachine):
                                 self.__config_data['InstPolicy']['HUMSpec']['robot_turn']['min_interval'],
                                 self.__config_data['InstPolicy']['HUMSpec']['robot_turn']['max_interval'])
 
-        if( state_inst['turn_ownership']['transition'] ):
+        if(self.__macro_human_turn_over(state_inst)):
             #Just transisted from human turn to robot turn
             #force a special bc immediately, including nodding and utterance immediately
             bc_action['hum'] = {
-                            'cmd': self.__config_data['BehavExec']['General']['hum_behav_exec_cmd'],
-                            'content': self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_special_col']
+                'cmd': self.__config_data['BehavExec']['General']['hum_behav_exec_cmd'],
+                'content': self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_special_col']
                 }
-
-            return bc_action 
         else:
             if(hum_trigger):
                 bc_action['hum'] = {
-                                'cmd': self.__config_data['BehavExec']['General']['hum_behav_exec_cmd'],
-                                'content': self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_robot_turn_hum']
+                    'cmd': self.__config_data['BehavExec']['General']['hum_behav_exec_cmd'],
+                    'content': self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_robot_turn_hum']
                     }
             else:
                 bc_action['hum'] = None
@@ -260,8 +266,8 @@ class InstantaneousPolicy(StateMachine):
 
     def __clearAllTriggers(self):
         self.__bc_ref_stamp = {
-                            'robot_nodding': self.__config_data['InstPolicy']['Misc']['no_stamp_val'], 
-                            'robot_humming': self.__config_data['InstPolicy']['Misc']['no_stamp_val']
+                            time.time(), 
+                            time.time()
                             }
         self.__bc_interval = {
                             'robot_nodding': self.__config_data['InstPolicy']['Misc']['no_stamp_val'], 
@@ -295,7 +301,9 @@ class InstantaneousPolicy(StateMachine):
 
 
         #Compare against the sampled interval
-        if( not_acting ):
+        if( not_acting 
+            and 
+            self.__bc_ref_stamp[monitored_state] != self.__config_data['InstPolicy']['Misc']['no_stamp_val']):
             not_acting_dur = time.time() - self.__bc_ref_stamp[monitored_state]
             if( self.__bc_interval[monitored_state] != self.__config_data['InstPolicy']['Misc']['no_stamp_val']
                 and
