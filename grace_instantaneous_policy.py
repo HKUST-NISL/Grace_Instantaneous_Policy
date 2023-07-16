@@ -256,9 +256,17 @@ class InstantaneousPolicy(StateMachine):
                 }
         else:
             if(hum_trigger):
+                content = None
+                if(state_inst['turn_ownership']['val'] == self.__config_data['InstState']['StateCode']['turn_r']):
+                    content = self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_robot_turn_hum']
+                elif(state_inst['turn_ownership']['val'] == self.__config_data['InstState']['StateCode']['turn_no']):
+                    content = self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_not_owned_turn_hum']
+                else:
+                    self.__logger.error("Unexpected state!!")
+                
                 bc_action['hum'] = {
                     'cmd': self.__config_data['BehavExec']['General']['hum_behav_exec_cmd'],
-                    'content': self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_robot_turn_hum']
+                    'content': content
                     }
             else:
                 bc_action['hum'] = None
