@@ -191,7 +191,9 @@ class InstantaneousPolicy(StateMachine):
     def __bcPolicy(self, state_inst):
         bc_action = {'nodding': None, 'hum': None}
 
-        if(state_inst['turn_ownership']['transition']):
+        if(state_inst['turn_ownership']['transition']
+           or
+           state_inst['robot_speaking']['transition']):
             #Reset the timing upon turn transition
             self.__clearAllTriggers()
 
@@ -317,9 +319,9 @@ class InstantaneousPolicy(StateMachine):
             self.__bc_ref_stamp[monitored_state] = state_inst[monitored_state]['stamp']
 
         #Whether we need to sample a new interval
-        sample_trigger = not_acting and (self.__bc_interval[monitored_state] == self.__config_data['InstPolicy']['Misc']['no_stamp_val'])
+        sample_new_interval = not_acting and (self.__bc_interval[monitored_state] == self.__config_data['InstPolicy']['Misc']['no_stamp_val'])
 
-        if( sample_trigger ):
+        if( sample_new_interval ):
             #Sample for the interval till next BC
             self.__bc_interval[monitored_state] = sample_rectified_exponential(mean_interval,min_interval,max_interval)
             self.__logger.info("Next %s in %f sec." % (monitored_state ,self.__bc_interval[monitored_state]))
