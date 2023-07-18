@@ -14,6 +14,7 @@ from inspect import getsourcefile
 from os.path import abspath
 from statemachine import StateMachine, State
 import numpy
+import random
 
 #ros
 import dynamic_reconfigure.client
@@ -199,8 +200,8 @@ class InstantaneousPolicy(StateMachine):
                 #In human's turn, (don't further specify for now)
                 bc_action = self.__humanTurnBC(state_inst)
             else:
-                #In indefinite / robot's turn, (don't further specify for now)
-                bc_action = self.__robotTurnBC(state_inst)
+                #In not owned / robot's turn, (don't further specify for now)
+                bc_action = self.__nonHumanTurnBC(state_inst)
                 
         return bc_action 
 
@@ -241,7 +242,7 @@ class InstantaneousPolicy(StateMachine):
 
         return bc_action
             
-    def __robotTurnBC(self, state_inst):
+    def __nonHumanTurnBC(self, state_inst):
         #Refer to the timestamp of the robot not-speaking state & robot not-nodding state
         #to decide whether the robot should output some bc at this instant
         bc_action = {}
@@ -258,14 +259,16 @@ class InstantaneousPolicy(StateMachine):
                                 self.__config_data['InstPolicy']['HUMSpec']['robot_turn']['min_interval'],
                                 self.__config_data['InstPolicy']['HUMSpec']['robot_turn']['max_interval'])
 
-        # if(self.__macro_human_turn_over(state_inst)):
-        #     #Just transisted from human turn to robot turn
-        #     #force a special bc immediately, including nodding and utterance immediately
-        #     bc_action['hum'] = {
-        #         'cmd': self.__config_data['BehavExec']['General']['hum_behav_exec_cmd'],
-        #         'content': self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_special_col']
-        #         }
-        # else:
+        if(self.__macro_human_turn_over(state_inst)):
+            #Just transisted from human turn 
+            if( random.uniform(0, 1) <= self.__config_data['InstPolicy']['HUMSpec']['human_turn']['transition_col_prob'] ):
+                #Force a special bc immediately, including nodding and utterance immediately
+                bc_action['hum'] = {
+                    'cmd': self.__config_data['BehavExec']['General']['hum_behav_exec_cmd'],
+                    'content': self.__database_reader.lookup_table(
+                                        self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_special_col'])
+                    }
+                return bc_action
         
         if(hum_trigger):
             content = None
