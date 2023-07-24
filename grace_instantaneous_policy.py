@@ -64,7 +64,20 @@ class InstantaneousPolicy(StateMachine):
         #Behavior specifications
         self.__database_reader = database_reader(
                         filename=os.path.join(file_path,"database",self.__config_data['InstPolicy']['HUMSpec']['data_base_name']))
-
+        self.__bc_type_cnt = self.__database_reader.checkBCStatistics(
+            intent_type_to_check_against=[
+                self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_human_turn_hum'],
+                self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_robot_turn_hum'],
+                self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_not_owned_turn_hum'],
+                self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_special_col']
+            ]
+        )
+        self.__bc_last = {
+            self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_human_turn_hum']: -1,
+            self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_robot_turn_hum']: -1,
+            self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_not_owned_turn_hum']: -1,
+            self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_special_col']: -1
+        }
 
 
         #Policy uses its own logger (output to its own dir) or the input logger
@@ -90,6 +103,11 @@ class InstantaneousPolicy(StateMachine):
                             'robot_nodding': self.__config_data['InstPolicy']['Misc']['no_stamp_val'], 
                             'robot_humming': self.__config_data['InstPolicy']['Misc']['no_stamp_val']
                             }
+
+
+        #Action related
+        
+
 
 
     def applyPolicy(self, state_inst):
@@ -236,7 +254,7 @@ class InstantaneousPolicy(StateMachine):
         if(hum_trigger):
                 bc_action['hum'] = {
                     'cmd': self.__config_data['BehavExec']['General']['hum_behav_exec_cmd'],
-                    'content': self.__database_reader.lookup_table(
+                    'content': self.__randPickBC(
                                     self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_human_turn_hum'])
                     }
         else:
@@ -267,7 +285,7 @@ class InstantaneousPolicy(StateMachine):
                 #Force a special bc immediately, including nodding and utterance immediately
                 bc_action['hum'] = {
                     'cmd': self.__config_data['BehavExec']['General']['hum_behav_exec_cmd'],
-                    'content': self.__database_reader.lookup_table(
+                    'content': self.__randPickBC(
                                         self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_special_col'])
                     }
                 return bc_action
@@ -275,10 +293,10 @@ class InstantaneousPolicy(StateMachine):
         if(hum_trigger):
             content = None
             if(state_inst['turn_ownership']['val'] == self.__config_data['InstState']['StateCode']['turn_r']):
-                content = self.__database_reader.lookup_table(
+                content = self.__randPickBC(
                                     self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_robot_turn_hum'])
             elif(state_inst['turn_ownership']['val'] == self.__config_data['InstState']['StateCode']['turn_no']):
-                content = self.__database_reader.lookup_table(
+                content = self.__randPickBC(
                                     self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_not_owned_turn_hum'])
             else:
                 self.__logger.error("Unexpected state!!")
@@ -344,3 +362,32 @@ class InstantaneousPolicy(StateMachine):
 
 
         return perform_BC
+    
+    def __randPickBC(self, bc_type):
+        #Construct candidate list
+        max_idx = self.__bc_type_cnt[bc_type]
+        candidate_idx_list = list(range(max_idx))
+
+
+        #Remove the one index used last time to avoid repetition
+        avoid_idx = self.__bc_last[bc_type]
+        try:
+            candidate_idx_list.remove(avoid_idx)
+        except:
+            candidate_idx_list
+            self.__logger.debug('Remove failed, probably because the element doesn\'t exist.')
+
+
+        #Pick one randomly and record the choice
+        rand_idx = candidate_idx_list[random.randint(0, len(candidate_idx_list) - 1)]
+        self.__bc_last[bc_type] = rand_idx
+
+        #Compose the bc intent name
+        intent_name = bc_type + str(rand_idx)
+
+        #Retrieve the content of the intent
+        content = self.__database_reader.lookup_table(intent_name)
+
+        return content
+
+

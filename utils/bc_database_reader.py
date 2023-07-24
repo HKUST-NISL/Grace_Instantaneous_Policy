@@ -5,6 +5,23 @@ class database_reader():
         super().__init__()
         self.df = pd.read_excel(filename)
 
+
+    def checkBCStatistics(self, intent_type_to_check_against):
+        cnt_per_intent_type = dict()
+        for i in range(len(intent_type_to_check_against)):
+            cnt_per_intent_type[intent_type_to_check_against[i]] = 0
+
+
+        for df_idx, df_row in self.df.iterrows():
+            intent = df_row["Intent Name"]
+
+            for i in range(len(intent_type_to_check_against)):
+                if( intent_type_to_check_against[i] in intent):
+                    cnt_per_intent_type[intent_type_to_check_against[i]] = cnt_per_intent_type[intent_type_to_check_against[i]] + 1
+                    break
+        return cnt_per_intent_type
+
+
     def lookup_table(self, intent_name:str):
         df_line = self.df[self.df["Intent Name"] == intent_name]
         lookup_result = {}
