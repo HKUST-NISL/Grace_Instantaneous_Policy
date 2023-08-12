@@ -239,7 +239,13 @@ class InstantaneousPolicy(StateMachine):
                                 self.__config_data['InstPolicy']['NoddingSpec']['min_interval'],
                                 self.__config_data['InstPolicy']['NoddingSpec']['max_interval'])
         if(nodding_trigger):
-            bc_action['nodding'] = self.__config_data['BehavExec']['General']['nod_cmd']
+            bc_action['nodding'] = {
+                'cmd': self.__config_data['BehavExec']['General']['nod_cmd'],
+                'args':
+                    {
+                        'nod_mode': str(self.__config_data['BehavExec']['HeadGazeGes']['minor_nod_code']) 
+                    },
+                }
         else:
             bc_action['nodding'] = None
 
@@ -282,11 +288,19 @@ class InstantaneousPolicy(StateMachine):
         if(self.__macro_human_turn_over(state_inst)):
             #Just transisted from human turn 
             if( random.uniform(0, 1) <= self.__config_data['InstPolicy']['HUMSpec']['human_turn']['transition_col_prob'] ):
-                #Force a special bc immediately, including nodding and utterance immediately
+                #Force a special bc immediately
                 bc_action['hum'] = {
                     'cmd': self.__config_data['BehavExec']['General']['hum_behav_exec_cmd'],
                     'content': self.__randPickBC(
                                         self.__config_data['InstPolicy']['HUMSpec']['predefined']['debug_special_col'])
+                    }
+                #Force nodding 
+                bc_action['nodding'] = {
+                    'cmd': self.__config_data['BehavExec']['General']['nod_cmd'],
+                    'args':
+                        {
+                            'nod_mode': str(self.__config_data['BehavExec']['HeadGazeGes']['major_nod_code']) 
+                        },
                     }
                 return bc_action
         
