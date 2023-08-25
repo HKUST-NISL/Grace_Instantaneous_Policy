@@ -112,7 +112,11 @@ class InstantaneousPolicy(StateMachine):
 
     def applyPolicy(self, state_inst):
         gaze_action = self.__gazePolicy(state_inst)
-        bc_action = self.__bcPolicy(state_inst)
+        if(self.__config_data['TM']['Debug']['enable_bc']):
+            bc_action = self.__bcPolicy(state_inst)
+        else:
+            bc_action = None
+
         return {'gaze_action': gaze_action, 'bc_action': bc_action}
 
     def __gazePolicy(self, state_inst):
