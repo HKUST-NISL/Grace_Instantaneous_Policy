@@ -112,10 +112,7 @@ class InstantaneousPolicy(StateMachine):
 
     def applyPolicy(self, state_inst):
         gaze_action = self.__gazePolicy(state_inst)
-        if(self.__config_data['TM']['Debug']['enable_bc']):
-            bc_action = self.__bcPolicy(state_inst)
-        else:
-            bc_action = None
+        bc_action = self.__bcPolicy(state_inst)
 
         return {'gaze_action': gaze_action, 'bc_action': bc_action}
 
@@ -289,8 +286,9 @@ class InstantaneousPolicy(StateMachine):
                                 self.__config_data['InstPolicy']['HUMSpec']['robot_turn']['min_interval'],
                                 self.__config_data['InstPolicy']['HUMSpec']['robot_turn']['max_interval'])
 
-        if(self.__macro_human_turn_over(state_inst)):
+        if(self.__config_data['TM']['Debug']['enable_active_bc'] and self.__macro_human_turn_over(state_inst)):
             #Just transisted from human turn 
+            #Active confirmation of listening -- only triggered when enabled
             if( random.uniform(0, 1) <= self.__config_data['InstPolicy']['HUMSpec']['human_turn']['transition_col_prob'] ):
                 #Force a special bc immediately
                 bc_action['hum'] = {
