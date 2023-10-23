@@ -239,7 +239,7 @@ class InstantaneousPolicy(StateMachine):
                                 self.__config_data['InstPolicy']['NoddingSpec']['mean_interval'],
                                 self.__config_data['InstPolicy']['NoddingSpec']['min_interval'],
                                 self.__config_data['InstPolicy']['NoddingSpec']['max_interval'])
-        if(nodding_trigger):
+        if(nodding_trigger and self.__config_data['TM']['Debug']['enable_passive_bc']):
             bc_action['nodding'] = {
                 'cmd': self.__config_data['BehavExec']['General']['nod_cmd'],
                 'args':
@@ -258,7 +258,7 @@ class InstantaneousPolicy(StateMachine):
                                 self.__config_data['InstPolicy']['HUMSpec']['human_turn']['mean_interval'],
                                 self.__config_data['InstPolicy']['HUMSpec']['human_turn']['min_interval'],
                                 self.__config_data['InstPolicy']['HUMSpec']['human_turn']['max_interval'])
-        if(hum_trigger):
+        if(hum_trigger and self.__config_data['TM']['Debug']['enable_passive_bc']):
                 bc_action['hum'] = {
                     'cmd': self.__config_data['BehavExec']['General']['hum_behav_exec_cmd'],
                     'content': self.__randPickBC(
@@ -306,7 +306,7 @@ class InstantaneousPolicy(StateMachine):
                     }
                 return bc_action
         
-        if(hum_trigger):
+        if(hum_trigger and self.__config_data['TM']['Debug']['enable_passive_bc']):
             content = None
             if(state_inst['turn_ownership']['val'] == self.__config_data['InstState']['StateCode']['turn_r']):
                 content = self.__randPickBC(
